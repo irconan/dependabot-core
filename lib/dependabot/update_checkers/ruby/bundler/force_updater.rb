@@ -20,21 +20,12 @@ module Dependabot
             @target_version   = target_version
           end
 
-          # rubocop:disable Metrics/AbcSize
           def force_update
             in_a_temporary_bundler_context do
               unlocked_gems = [dependency.name]
 
               begin
                 definition = build_definition(unlocked_gems: unlocked_gems)
-
-                target_dep = definition.dependencies.
-                             find { |d| d.name == dependency.name }
-                target_dep.instance_variable_set(
-                  :@requirement,
-                  Gem::Requirement.create("= #{target_version}")
-                )
-
                 definition.resolve_remotely!
                 dep = definition.resolve.find { |d| d.name == dependency.name }
                 { version: dep.version, unlocked_gems: unlocked_gems }
@@ -52,7 +43,6 @@ module Dependabot
             msg = error.error_class + " with message: " + error.error_message
             raise Dependabot::DependencyFileNotResolvable, msg
           end
-          # rubocop:enable Metrics/AbcSize
 
           private
 
@@ -91,10 +81,17 @@ module Dependabot
               gems: unlocked_gems
             )
 
-            # Unlock the requirement in the Gemfile / gemspec
+            # Remove the Gemfile / gemspec requirements on the gems we're
+            # unlocking (i.e., completely unlock them)
             unlocked_gems.each do |gem_name|
               unlock_gem(definition: definition, gem_name: gem_name)
             end
+
+            # Set the requirement for the gem we're forcing an update of
+            new_req = Gem::Requirement.create("= #{target_version}")
+            definition.dependencies.
+              find { |d| d.name == dependency.name }.
+              instance_variable_set(:@requirement, new_req)
 
             definition
           end
