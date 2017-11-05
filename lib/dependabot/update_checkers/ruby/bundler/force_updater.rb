@@ -22,26 +22,31 @@ module Dependabot
 
           def force_update
             in_a_temporary_bundler_context do
-              unlocked_gems = [dependency.name]
+              other_updates = []
 
               begin
-                definition = build_definition(unlocked_gems: unlocked_gems)
+                definition = build_definition(other_updates: other_updates)
                 definition.resolve_remotely!
                 dep = definition.resolve.find { |d| d.name == dependency.name }
-                { version: dep.version, unlocked_gems: unlocked_gems }
+                {
+                  version: dep.version,
+                  other_updates: other_updates.map(&:name)
+                }
               rescue ::Bundler::VersionConflict => error
                 # TODO: Not sure this won't unlock way too many things...
-                to_unlock = error.cause.conflicts.values.flat_map do |conflict|
-                  conflict.requirement_trees.map { |r| r.first.name }
-                end
-                raise unless (to_unlock - unlocked_gems).any?
-                unlocked_gems |= to_unlock
+                new_dependencies_to_unlock =
+                  new_dependencies_to_unlock_from(
+                    error: error,
+                    already_unlocked: other_updates
+                  )
+
+                raise if new_dependencies_to_unlock.none?
+                other_updates += new_dependencies_to_unlock
                 retry
               end
             end
           rescue SharedHelpers::ChildProcessFailed => error
-            msg = error.error_class + " with message: " + error.error_message
-            raise Dependabot::DependencyFileNotResolvable, msg
+            raise_unresolvable_error(error)
           end
 
           private
@@ -74,16 +79,29 @@ module Dependabot
             end
           end
 
-          def build_definition(unlocked_gems:)
+          def new_dependencies_to_unlock_from(error:, already_unlocked:)
+            error.cause.conflicts.values.
+              flat_map { |conflict| conflict.requirement_trees.map(&:first) }.
+              reject { |dep| already_unlocked.include?(dep.name) }.
+              reject { |dep| dep.name == dependency.name }
+          end
+
+          def raise_unresolvable_error(error)
+            msg = error.error_class + " with message: " + error.error_message
+            raise Dependabot::DependencyFileNotResolvable, msg
+          end
+
+          def build_definition(other_updates:)
+            gems_to_unlock = other_updates.map(&:name) + [dependency.name]
             definition = ::Bundler::Definition.build(
               "Gemfile",
               lockfile&.name,
-              gems: unlocked_gems
+              gems: gems_to_unlock
             )
 
             # Remove the Gemfile / gemspec requirements on the gems we're
             # unlocking (i.e., completely unlock them)
-            unlocked_gems.each do |gem_name|
+            gems_to_unlock.each do |gem_name|
               unlock_gem(definition: definition, gem_name: gem_name)
             end
 

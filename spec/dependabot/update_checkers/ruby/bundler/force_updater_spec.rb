@@ -82,8 +82,8 @@ RSpec.describe Dependabot::UpdateCheckers::Ruby::Bundler::ForceUpdater do
       let(:dependency_name) { "rspec-mocks" }
 
       its([:version]) { is_expected.to eq(Gem::Version.new("3.6.0")) }
-      its([:unlocked_gems]) do
-        is_expected.to match_array(%w(rspec-support rspec-mocks))
+      its([:other_updates]) do
+        is_expected.to match_array(%w(rspec-support))
       end
     end
 
@@ -115,8 +115,8 @@ RSpec.describe Dependabot::UpdateCheckers::Ruby::Bundler::ForceUpdater do
       let(:dependency_name) { "rspec-support" }
 
       its([:version]) { is_expected.to eq(Gem::Version.new("3.6.0")) }
-      its([:unlocked_gems]) do
-        is_expected.to match_array(%w(rspec-support rspec-mocks))
+      its([:other_updates]) do
+        is_expected.to match_array(%w(rspec-mocks))
       end
     end
 
@@ -156,8 +156,8 @@ RSpec.describe Dependabot::UpdateCheckers::Ruby::Bundler::ForceUpdater do
       let(:target_version) { "3.6.0" }
 
       its([:version]) { is_expected.to eq(Gem::Version.new("3.6.0")) }
-      its([:unlocked_gems]) do
-        is_expected.to match_array(%w(rspec-expectations rspec-mocks))
+      its([:other_updates]) do
+        is_expected.to match_array(%w(rspec-expectations))
       end
     end
 
