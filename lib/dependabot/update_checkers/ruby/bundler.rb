@@ -12,6 +12,7 @@ module Dependabot
         require_relative "bundler/file_preparer"
         require_relative "bundler/requirements_updater"
         require_relative "bundler/version_resolver"
+        require_relative "bundler/force_updater"
 
         def latest_version
           return latest_version_for_git_dependency if git_dependency?
@@ -20,7 +21,18 @@ module Dependabot
 
         def latest_resolvable_version
           return latest_resolvable_version_for_git_dependency if git_dependency?
-          latest_resolvable_version_details&.fetch(:version)
+          latest_standalone_update =
+            latest_resolvable_version_details&.fetch(:version)
+
+          if latest_standalone_update&.>(Gem::Version.new(dependency.version))
+            return latest_standalone_update
+          end
+
+          if latest_version&.>(Gem::Version.new(dependency.version))
+            return forced_update.fetch(:version)
+          end
+
+          latest_standalone_update
         end
 
         def updated_requirements
@@ -32,6 +44,10 @@ module Dependabot
             latest_resolvable_version:
               latest_resolvable_version_details&.fetch(:version)&.to_s
           ).updated_requirements
+        end
+
+        def additional_required_updates
+          force_update_used? ? forced_update.fetch(:other_updates) : []
         end
 
         private
@@ -193,6 +209,20 @@ module Dependabot
           true
         rescue ArgumentError
           false
+        end
+
+        def force_update_used?
+          !@forced_update.nil?
+        end
+
+        def forced_update
+          @forced_update ||=
+            ForceUpdater.new(
+              dependency: dependency,
+              dependency_files: dependency_files,
+              credentials: credentials,
+              target_version: latest_version
+            ).force_update
         end
 
         def git_commit_checker

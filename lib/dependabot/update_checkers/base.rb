@@ -46,6 +46,10 @@ module Dependabot
         raise NotImplementedError
       end
 
+      def additional_required_updates
+        []
+      end
+
       private
 
       def version_needs_update?

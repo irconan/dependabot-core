@@ -397,6 +397,64 @@ RSpec.describe Dependabot::UpdateCheckers::Ruby::Bundler do
         # The latest version of ibandit is 0.8.5, but 0.3.4 is the latest
         # version compatible with the version of i18n in the Gemfile.
         it { is_expected.to eq(Gem::Version.new("0.3.4")) }
+
+        context "and no other update available" do
+          let(:gemfile_body) { fixture("ruby", "gemfiles", "version_conflict") }
+          let(:lockfile_body) do
+            fixture("ruby", "lockfiles", "version_conflict.lock")
+          end
+          let(:dependency) do
+            Dependabot::Dependency.new(
+              name: "rspec-mocks",
+              version: "3.5.0",
+              requirements: requirements,
+              package_manager: "bundler"
+            )
+          end
+          let(:requirements) do
+            [
+              {
+                file: "Gemfile",
+                requirement: "= 3.5.0",
+                groups: [:default],
+                source: nil
+              }
+            ]
+          end
+
+          before do
+            api_url = "https://rubygems.org/api/v1/gems/"
+            rubygems_response =
+              fixture("ruby", "rubygems_response.json").
+              gsub("1.5.0", "3.6.0")
+            stub_request(:get, api_url + "rspec-mocks.json").
+              to_return(status: 200, body: rubygems_response)
+
+            info_url = "https://index.rubygems.org/info/"
+            stub_request(:get, info_url + "diff-lcs").
+              to_return(
+                status: 200,
+                body: fixture("ruby", "rubygems-info-diff-lcs")
+              )
+            stub_request(:get, info_url + "rspec-mocks").
+              to_return(
+                status: 200,
+                body: fixture("ruby", "rubygems-info-rspec-mocks")
+              )
+            stub_request(:get, info_url + "rspec-support").
+              to_return(
+                status: 200,
+                body: fixture("ruby", "rubygems-info-rspec-support")
+              )
+          end
+
+          it { is_expected.to eq(Gem::Version.new("3.6.0")) }
+          it "sets the right additional_required_updates" do
+            expect(checker.additional_required_updates).to be_empty
+            checker.latest_resolvable_version
+            expect(checker.additional_required_updates).to_not be_empty
+          end
+        end
       end
 
       context "with a legacy Ruby which disallows the latest version" do
@@ -1238,7 +1296,7 @@ RSpec.describe Dependabot::UpdateCheckers::Ruby::Bundler do
           to receive(:version_resolver).
           and_return(dummy_version_resolver)
         expect(dummy_version_resolver).
-          to receive(:latest_version_details).
+          to receive(:latest_version_details).twice.
           and_return(version: dummy_version)
         expect(checker.latest_resolvable_version).to eq(dummy_version)
       end
