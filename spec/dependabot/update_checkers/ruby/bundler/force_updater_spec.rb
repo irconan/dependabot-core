@@ -80,10 +80,41 @@ RSpec.describe Dependabot::UpdateCheckers::Ruby::Bundler::ForceUpdater do
       end
       let(:target_version) { "3.6.0" }
       let(:dependency_name) { "rspec-mocks" }
+      let(:requirements) do
+        [
+          {
+            file: "Gemfile",
+            requirement: "= 3.5.0",
+            groups: [:default],
+            source: nil
+          }
+        ]
+      end
+      let(:expected_requirements) do
+        [
+          {
+            file: "Gemfile",
+            requirement: "3.6.0",
+            groups: [:default],
+            source: nil
+          }
+        ]
+      end
 
       its([:version]) { is_expected.to eq(Gem::Version.new("3.6.0")) }
       its([:other_updates]) do
-        is_expected.to match_array(%w(rspec-support))
+        is_expected.to match_array(
+          [
+            Dependabot::Dependency.new(
+              name: "rspec-support",
+              version: "3.6.0",
+              previous_version: "3.5.0",
+              requirements: expected_requirements,
+              previous_requirements: requirements,
+              package_manager: "bundler"
+            )
+          ]
+        )
       end
     end
 
@@ -113,10 +144,41 @@ RSpec.describe Dependabot::UpdateCheckers::Ruby::Bundler::ForceUpdater do
       end
       let(:target_version) { "3.6.0" }
       let(:dependency_name) { "rspec-support" }
+      let(:requirements) do
+        [
+          {
+            file: "Gemfile",
+            requirement: "= 3.5.0",
+            groups: [:default],
+            source: nil
+          }
+        ]
+      end
+      let(:expected_requirements) do
+        [
+          {
+            file: "Gemfile",
+            requirement: "3.6.0",
+            groups: [:default],
+            source: nil
+          }
+        ]
+      end
 
       its([:version]) { is_expected.to eq(Gem::Version.new("3.6.0")) }
       its([:other_updates]) do
-        is_expected.to match_array(%w(rspec-mocks))
+        is_expected.to match_array(
+          [
+            Dependabot::Dependency.new(
+              name: "rspec-mocks",
+              version: "3.6.0",
+              previous_version: "3.5.0",
+              requirements: expected_requirements,
+              previous_requirements: requirements,
+              package_manager: "bundler"
+            )
+          ]
+        )
       end
     end
 
@@ -154,10 +216,41 @@ RSpec.describe Dependabot::UpdateCheckers::Ruby::Bundler::ForceUpdater do
 
       let(:dependency_name) { "rspec-mocks" }
       let(:target_version) { "3.6.0" }
+      let(:requirements) do
+        [
+          {
+            file: "Gemfile",
+            requirement: "~> 3.5.0",
+            groups: [:default],
+            source: nil
+          }
+        ]
+      end
+      let(:expected_requirements) do
+        [
+          {
+            file: "Gemfile",
+            requirement: "~> 3.6.0",
+            groups: [:default],
+            source: nil
+          }
+        ]
+      end
 
       its([:version]) { is_expected.to eq(Gem::Version.new("3.6.0")) }
       its([:other_updates]) do
-        is_expected.to match_array(%w(rspec-expectations))
+        is_expected.to match_array(
+          [
+            Dependabot::Dependency.new(
+              name: "rspec-expectations",
+              version: "3.6.0",
+              previous_version: "3.5.0",
+              requirements: expected_requirements,
+              previous_requirements: requirements,
+              package_manager: "bundler"
+            )
+          ]
+        )
       end
     end
 

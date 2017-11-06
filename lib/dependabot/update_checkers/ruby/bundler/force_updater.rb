@@ -4,6 +4,8 @@ require "bundler_definition_version_patch"
 require "bundler_git_source_patch"
 
 require "dependabot/update_checkers/ruby/bundler"
+require "dependabot/update_checkers/ruby/bundler/requirements_updater"
+require "dependabot/file_parsers/ruby/bundler"
 require "dependabot/shared_helpers"
 require "dependabot/errors"
 
@@ -27,10 +29,10 @@ module Dependabot
               begin
                 definition = build_definition(other_updates: other_updates)
                 definition.resolve_remotely!
-                dep = definition.resolve.find { |d| d.name == dependency.name }
+                specs = definition.resolve
                 {
-                  version: dep.version,
-                  other_updates: other_updates.map(&:name)
+                  version: specs.find { |d| d.name == dependency.name }.version,
+                  other_updates: dependencies_from(other_updates, specs)
                 }
               rescue ::Bundler::VersionConflict => error
                 # TODO: Not sure this won't unlock way too many things...
@@ -123,6 +125,38 @@ module Dependabot
               :@requirement,
               Gem::Requirement.create(">= #{version}")
             )
+          end
+
+          def original_dependencies
+            @original_dependencies ||=
+              FileParsers::Ruby::Bundler.new(
+                dependency_files: dependency_files,
+                credentials: credentials
+              ).parse
+          end
+
+          def dependencies_from(other_updates, specs)
+            other_updates.map do |other_dep|
+              original_dep =
+                original_dependencies.find { |d| d.name == other_dep.name }
+              spec = specs.find { |d| d.name == other_dep.name }
+              Dependency.new(
+                name: other_dep.name,
+                version: spec.version.to_s,
+                requirements:
+                  RequirementsUpdater.new(
+                    requirements: original_dep.requirements,
+                    existing_version: original_dep.version,
+                    updated_source:
+                      original_dep.requirements.find { |r| r.fetch(:source) },
+                    latest_version: spec.version.to_s,
+                    latest_resolvable_version: spec.version.to_s
+                  ).updated_requirements,
+                previous_version: original_dep.version,
+                previous_requirements: original_dep.requirements,
+                package_manager: original_dep.package_manager
+              )
+            end
           end
 
           def gemfile
